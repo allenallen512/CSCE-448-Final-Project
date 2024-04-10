@@ -1,6 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import cv2
+from skimage.filters import laplace
+
 
 #got this function from homework3
 def GetMask(image):
@@ -50,6 +52,10 @@ def getGradient(mask):
     #this will return the points on the edge of the omega gradient as well as a new mask with a red line around the mask area. 
     #the new mask is not really needed tbh. just for viewing
     return edge_points, mask_with_contour
+
+def getFront(mask): 
+    #will return an array the same size as mask. only the edges will be one.
+    return (laplace(mask) > 0).astype('uint8');
     
 
 if __name__ == '__main__':
