@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import cv2
 
-
+#got this function from homework3
 def GetMask(image):
     ### You can add any number of points by using 
     ### mouse left click. Delete points with mouse
@@ -27,6 +27,31 @@ def GetMask(image):
 
     return mask
 
+def getGradient(mask):
+    # copy the mask -- only used for viewing purposes
+    mask_with_contour = mask.copy()
+    
+    #mmake into grey
+    if len(mask.shape) > 2:
+        mask_gray = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
+    else:
+        mask_gray = mask
+    
+    # Find contours
+    contours, _ = cv2.findContours(mask_gray, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    
+
+    edge_points = []
+    for contour in contours:
+        for point in contour:
+            edge_points.append(tuple(point[0]))
+        cv2.drawContours(mask_with_contour, [contour], 0, (0, 0, 255), 2) 
+    
+    #this will return the points on the edge of the omega gradient as well as a new mask with a red line around the mask area. 
+    #the new mask is not really needed tbh. just for viewing
+    return edge_points, mask_with_contour
+    
+
 if __name__ == '__main__':
     
     imageDir = '../Images/'
@@ -40,3 +65,11 @@ if __name__ == '__main__':
     index = 1
     
     plt.imsave("{}mask_{}.jpg".format(imageDir, str(index).zfill(2)), masked)
+    
+    mask = plt.imread(imageDir + "mask_01.jpg")
+    edge_points, image_with_contour = getGradient(mask)
+
+    # Display the image with the red line
+    cv2.imshow('Image with Contour', image_with_contour)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows() 
