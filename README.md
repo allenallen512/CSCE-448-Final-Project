@@ -6,3 +6,7 @@ This project proposes to implement object removal from images. This involves not
 
 Dependencies:
 1. pip install numpy open-cv python
+
+Useful links:
+1. https://github.com/bobqywei/inpainting-partial-conv/blob/master/inpaint.py#L106
+2. 
