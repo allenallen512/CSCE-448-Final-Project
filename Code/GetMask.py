@@ -41,17 +41,17 @@ def getGradient(mask):
     
     # Find contours
     contours, _ = cv2.findContours(mask_gray, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    
+    mask_with_contour =  cv2.drawContours(mask_with_contour, contours, 0, (0, 0, 255), 2) 
+
 
     edge_points = []
     for contour in contours:
         for point in contour:
             edge_points.append(tuple(point[0]))
-        cv2.drawContours(mask_with_contour, [contour], 0, (0, 0, 255), 2) 
     
     #this will return the points on the edge of the omega gradient as well as a new mask with a red line around the mask area. 
     #the new mask is not really needed tbh. just for viewing
-    return edge_points, mask_with_contour
+    return edge_points, mask_with_contour.astype("uint8")
 
 def getFront(mask): 
     #will return an array the same size as mask. only the edges will be one.
@@ -62,9 +62,7 @@ if __name__ == '__main__':
     
     imageDir = '../Images/'
     resultDir = '../Results/'
-    
     im1_name = 'target_01.jpg'
-    
     image = plt.imread(imageDir + im1_name)
     
     masked = GetMask(image)
@@ -74,6 +72,9 @@ if __name__ == '__main__':
     
     mask = plt.imread(imageDir + "mask_01.jpg")
     edge_points, image_with_contour = getGradient(mask)
+    print(edge_points)
+    # plt.imsave("{}countor_{}.jpg".format(imageDir, str(index).zfill(2)), image_with_contour)
+
 
     # Display the image with the red line
     cv2.imshow('Image with Contour', image_with_contour)

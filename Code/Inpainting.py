@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 
+
 # Patch Extraction
 def get_patches_around_boundary(image, mask, patch_size):
     # Patch size has to be odd
@@ -37,26 +38,41 @@ def compute_priority(patch, grad_mag):
     priority = data_term * confidence_term
     return priority
 
-def find_best_match(image, target_patch, mask):
+def find_best_match(image, target_patch, mask, patch_size):
     best_ssd = float('inf')
-    best_match = None
-    patch_size = target_patch.shape[0]
+    best_match = []
     half_patch_size = patch_size // 2
+    inverted_mask = 1 - mask
 
-    for y in range(half_patch_size, image.shape[0] - half_patch_size):
+    for y in range(half_patch_size, image.shape[0] - half_patch_size): 
+        #making sure it doesn't start or end too close to the edge of the image
         for x in range(half_patch_size, image.shape[1] - half_patch_size):
             # Skip patches that overlap with the mask
-            if np.any(mask[y - half_patch_size:y + half_patch_size + 1, x - half_patch_size:x + half_patch_size + 1]):
+            bottomY = y - half_patch_size
+            upperY = y + half_patch_size + 1
+            bottomX = x - half_patch_size
+            upperX = x + half_patch_size + 1
+            maskPatch = inverted_mask[bottomY:upperY, bottomX:upperX]
+            # if any of the points within the mask patch are equal to 1, skip to the next spot
+            if np.any(maskPatch == 0):
                 continue
-
-            candidate_patch = image[y - half_patch_size:y + half_patch_size + 1, x - half_patch_size:x + half_patch_size + 1]
-            ssd = np.sum((candidate_patch - target_patch) ** 2)
-
-            if ssd < best_ssd:
-                best_ssd = ssd
-                best_match = (x, y)
-
+            
+            candidatePatch = image[bottomY:upperY, bottomX:upperX] * inverted_mask
+            # multiplying by inverted mask ^^^ should not matter since any patches within the mask are skipped
+            targetImage = target_patch * inverted_mask #all points within the mask will be 0 and points outside will be the same
+            #only comparing points outside of the mask here
+            
+            
+            difference = np.linalg.norm(targetImage - candidatePatch)
+            
+            if difference < best_ssd:
+                best_ssd = difference
+                best_match = [(bottomX, upperX), (bottomY,upperY)]
+                
     return best_match
+                
+        
+
 
 
 def inpaint(image, mask, patch_size):
