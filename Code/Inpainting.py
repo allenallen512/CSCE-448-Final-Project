@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 
 
-# Patch Extraction
+# Patch Extraction - this is done in GetMask.py I believe. 
 def get_patches_around_boundary(image, mask, patch_size):
     # Patch size has to be odd
     if patch_size % 2 == 0:
@@ -38,6 +38,29 @@ def compute_priority(patch, grad_mag):
     priority = data_term * confidence_term
     return priority
 
+def compute_confidence(countours, windowSize, mask, point, sourceImage, confidence):
+    radius = windowSize // 2
+    inverseMask = 1-mask 
+    inversedImage = inverseMask * sourceImage
+    
+    height, width = mask.shape #height is number rows, width is number of columns
+    
+    for front in np.argwhere(countours == 1): #along the fill front
+        
+        y_lower = max(0, point[0] - radius) #height lower bound is either 0 or point - radius
+        y_upper = min(point[0] + radius, height - 1) #height upper bound is either the point + radius, or the height of the pic
+        x_lower = max(0, point[1] - radius)
+        x_upper = min(point[1], width - 1)
+        
+        psi = confidence[y_lower:y_upper , x_lower:x_upper]
+        sumPsi = np.sum(psi)
+        magPsi = (x_upper - x_lower) * (y_upper - y_lower)
+        confidence[point[1], point[0]] = sumPsi / magPsi
+
+    return confidence
+        
+        
+#function should be good and done - allen
 def find_best_match(image, target_patch, mask, patch_size):
     best_ssd = float('inf')
     best_match = []
@@ -72,8 +95,6 @@ def find_best_match(image, target_patch, mask, patch_size):
     return best_match
                 
         
-
-
 
 def inpaint(image, mask, patch_size):
     # Convert the mask to a binary format if it isn't already

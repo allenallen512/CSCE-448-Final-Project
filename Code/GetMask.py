@@ -51,7 +51,7 @@ def getGradient(mask):
     
     #this will return the points on the edge of the omega gradient as well as a new mask with a red line around the mask area. 
     #the new mask is not really needed tbh. just for viewing
-    return edge_points, mask_with_contour.astype("uint8")
+    return edge_points, mask_with_contour
 
 def getFront(mask): 
     #will return an array the same size as mask. only the edges will be one.
