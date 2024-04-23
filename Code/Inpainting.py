@@ -26,17 +26,44 @@ def get_patches_around_boundary(image, mask, patch_size):
     return boundary_patches
 
 
+def boundary(img, x, y, window):
+    img_height, img_width = img.shape[0], img.shape[1]
+    x_left = x - window[0]
+    x_right = x + window[0]
+    y_top = y - window[1]
+    y_bottom = y + window[1]
+    if x_left < 0:
+        x_left = 0
+    if x_right >= img_width:
+        x_right = img_width - 1
+    if y_top < 0:
+        y_top = 0
+    if y_bottom >= img_height:
+        y_bottom = img_height - 1
+    return x_left, x_right, y_top, y_bottom
+        
 
-def compute_priority(patch, grad_mag):
-    # Data term: Here, we use the sum of gradient magnitudes within the patch as a proxy
-    data_term = np.sum(grad_mag)
+def compute_priority(img, fill_front, mask, confidence, window, threshold=0.001):
+    # 2.1. Find the confidence using:
+    # C(p) = ∑q∈Ψp∩(I−Ω) C(q) / |Ψp|
+    for front in np.argwhere(fill_front == 1):
+        x_left, x_right, y_top, y_bottom = boundary(img, front[0], front[1], window)
+        psi = confidence[x_left: x_right, y_top: y_bottom]
+        diffX = x_right - x_left
+        diffY = y_bottom - y_top
+        confidence[front[0], front[1]] = np.sum(psi) / (diffX * diffY)
 
-    # Confidence term: For simplicity, let's assume a fixed confidence for this example
-    confidence_term = 1.0  # In a real implementation, this would vary based on already inpainted regions
+    # 2.2. Run Sobel edge detector to find the normal along the x- and y-axis.
+    data = cv2.Sobel(src=mask.astype(float), ddepth=cv2.CV_64F, dx=1, dy=1, ksize=1)
+    # Normalize the vector.
+    data /= np.linalg.norm(data)
+    # This helps nudge the algorithm if it gets stuck.
+    data +=  threshold
 
-    # Combine the terms (many approaches are possible; this is just one)
-    priority = data_term * confidence_term
-    return priority
+    # 2.3. Find the priority.
+    priority = fill_front * confidence * data
+    return priority, confidence
+
 
 def compute_confidence(countours, windowSize, mask, point, sourceImage, confidence):
     radius = windowSize // 2
