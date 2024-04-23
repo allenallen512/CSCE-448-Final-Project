@@ -72,7 +72,7 @@ if __name__ == '__main__':
     
     mask = plt.imread(imageDir + "mask_01.jpg")
     edge_points, image_with_contour = getGradient(mask)
-    print(edge_points)
+    # print(edge_points)
     # plt.imsave("{}countor_{}.jpg".format(imageDir, str(index).zfill(2)), image_with_contour)
 
 
