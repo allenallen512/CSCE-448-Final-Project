@@ -43,15 +43,11 @@ def boundary(img, x, y, window):
     return x_left, x_right, y_top, y_bottom
         
 
-def compute_priority(img, fill_front, mask, confidence, window, threshold=0.001):
-    # 2.1. Find the confidence using:
-    # C(p) = ∑q∈Ψp∩(I−Ω) C(q) / |Ψp|
-    for front in np.argwhere(fill_front == 1):
-        x_left, x_right, y_top, y_bottom = boundary(img, front[0], front[1], window)
-        psi = confidence[x_left: x_right, y_top: y_bottom]
-        diffX = x_right - x_left
-        diffY = y_bottom - y_top
-        confidence[front[0], front[1]] = np.sum(psi) / (diffX * diffY)
+def compute_priority(img, fill_front, mask, window, point, threshold=0.001):
+    
+    confidence = (1 - mask).astype(np.float64)
+
+    compute_confidence(fill_front, window, mask, point, img, confidence)
 
     # 2.2. Run Sobel edge detector to find the normal along the x- and y-axis.
     data = cv2.Sobel(src=mask.astype(float), ddepth=cv2.CV_64F, dx=1, dy=1, ksize=1)
@@ -86,7 +82,6 @@ def compute_confidence(countours, windowSize, mask, point, sourceImage, confiden
 
     return confidence
         
-        
 #function should be good and done - allen
 def find_best_match(image, target_patch, mask, patch_size):
     best_ssd = float('inf')
@@ -112,12 +107,13 @@ def find_best_match(image, target_patch, mask, patch_size):
             targetImage = target_patch * inverted_mask #all points within the mask will be 0 and points outside will be the same
             #only comparing points outside of the mask here
             
-            
             difference = np.linalg.norm(targetImage - candidatePatch)
             
             if difference < best_ssd:
                 best_ssd = difference
-                best_match = [(bottomX, upperX), (bottomY,upperY)]
+                best_match = [bottomX, upperX, bottomY,upperY]
+                # returns an array which which has the bottom and top x and y values of the box we should use to fill the 
+                #patch that we need
                 
     return best_match
                 
@@ -157,6 +153,8 @@ def inpaint(image, mask, patch_size):
 
     return image
 
+def update_Mask_Image(): 
+    return 0
 
 
 if __name__ == '__main__':
