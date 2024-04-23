@@ -42,8 +42,8 @@ def compute_norm(matrix):
     matrix = matrix ** 2
     return np.sqrt(np.sum(matrix))
 
-def compute_priority(img, fill_front, mask, window, point):
-    conf = compute_confidence(fill_front, window, mask, point, img)
+def compute_priority(img, fill_front, mask, window):
+    conf = compute_confidence(fill_front, window, mask, img)
 
     sobel_map = cv2.Sobel(src=mask.astype(float), ddepth=cv2.CV_64F, dx=1, dy=1, ksize=1)
     sobel_map_norm = compute_norm(sobel_map)
@@ -64,44 +64,34 @@ def compute_confidence(contours, window, mask, img):
             if contours[i][j] != 1:
                 continue
             x_left, x_right, y_top, y_bottom = boundary(img, j, i, window)
-            sumPsi = np.sum(confidence[y_top:y_bottom , x_left:x_right])
+            sumPsi = np.sum(confidence[y_top:y_bottom + 1 , x_left:x_right + 1])
             magPsi = (x_right - x_left) * (y_bottom - y_top)
             confidence[j, i] = sumPsi / magPsi
 
     return confidence
         
-#function should be good and done - allen
-def find_best_match(image, target_patch, mask, patch_size):
+def find_best_match(img, mask, patch_size, priorityCoord):
     best_ssd = float('inf')
     best_match = []
-    half_patch_size = patch_size // 2
-    inverted_mask = 1 - mask
+    inverted_mask = invert(mask)
+    xl, xr, yt, yb = boundary(priorityCoord[0], priorityCoord[1], patch_size)
+    target_patch = inverted_mask[yt:yb + 1, xl:xr + 1]
+    target_img = img[yt:yb + 1, xl:xr + 1] * target_patch
 
-    for y in range(half_patch_size, image.shape[0] - half_patch_size): 
-        #making sure it doesn't start or end too close to the edge of the image
-        for x in range(half_patch_size, image.shape[1] - half_patch_size):
-            # Skip patches that overlap with the mask
-            bottomY = y - half_patch_size
-            upperY = y + half_patch_size + 1
-            bottomX = x - half_patch_size
-            upperX = x + half_patch_size + 1
-            maskPatch = inverted_mask[bottomY:upperY, bottomX:upperX]
-            # if any of the points within the mask patch are equal to 1, skip to the next spot
+    for y in range(image.shape[0]): 
+        for x in range(image.shape[1]):
+            x_left, x_right, y_top, y_bottom = boundary(img, x, y, patch_size)
+            maskPatch = inverted_mask[y_top:y_bottom + 1, x_left: x_right + 1]
+
             if np.any(maskPatch == 0):
                 continue
             
-            candidatePatch = image[bottomY:upperY, bottomX:upperX] * inverted_mask
-            # multiplying by inverted mask ^^^ should not matter since any patches within the mask are skipped
-            targetImage = target_patch * inverted_mask #all points within the mask will be 0 and points outside will be the same
-            #only comparing points outside of the mask here
-            
-            difference = np.linalg.norm(targetImage - candidatePatch)
-            
+            candidatePatch = image[y_top:y_bottom + 1, x_left:x_right + 1] * target_patch
+    
+            difference = np.linalg.norm(target_img - candidatePatch)
             if difference < best_ssd:
                 best_ssd = difference
-                best_match = [bottomX, upperX, bottomY,upperY]
-                # returns an array which which has the bottom and top x and y values of the box we should use to fill the 
-                #patch that we need
+                best_match = [x_left, x_right, y_top, y_bottom]
                 
     return best_match
                 
