@@ -28,57 +28,45 @@ def get_patches_around_boundary(image, mask, patch_size):
 
 def boundary(img, x, y, window):
     img_height, img_width = img.shape[0], img.shape[1]
-    x_left = x - window[0]
-    x_right = x + window[0]
-    y_top = y - window[1]
-    y_bottom = y + window[1]
-    if x_left < 0:
-        x_left = 0
-    if x_right >= img_width:
-        x_right = img_width - 1
-    if y_top < 0:
-        y_top = 0
-    if y_bottom >= img_height:
-        y_bottom = img_height - 1
+    x_left, x_right, y_top, y_bottom = x - window[0], x + window[0], y - window[1], y + window[1]
+
+    if x_left < 0: x_left = 0
+    if x_right >= img_width: x_right = img_width - 1
+    if y_top < 0: y_top = 0
+    if y_bottom >= img_height: y_bottom = img_height - 1
+
     return x_left, x_right, y_top, y_bottom
+
+
+def compute_norm(matrix):
+    matrix = matrix ** 2
+    return np.sqrt(np.sum(matrix))
+
+def compute_priority(img, fill_front, mask, window, point):
+    conf = compute_confidence(fill_front, window, mask, point, img)
+
+    sobel_map = cv2.Sobel(src=mask.astype(float), ddepth=cv2.CV_64F, dx=1, dy=1, ksize=1)
+    sobel_map_norm = compute_norm(sobel_map)
+    sobel_map /= sobel_map_norm
+
+    return fill_front * conf * sobel_map, conf
+
+
+def invert(mask):
+    return 1-mask
+
+def compute_confidence(contours, window, mask, img):
+
+    confidence = invert(mask).astype(np.float64)
         
-
-def compute_priority(img, fill_front, mask, window, point, threshold=0.001):
-    
-    confidence = (1 - mask).astype(np.float64)
-
-    compute_confidence(fill_front, window, mask, point, img, confidence)
-
-    # 2.2. Run Sobel edge detector to find the normal along the x- and y-axis.
-    data = cv2.Sobel(src=mask.astype(float), ddepth=cv2.CV_64F, dx=1, dy=1, ksize=1)
-    # Normalize the vector.
-    data /= np.linalg.norm(data)
-    # This helps nudge the algorithm if it gets stuck.
-    data +=  threshold
-
-    # 2.3. Find the priority.
-    priority = fill_front * confidence * data
-    return priority, confidence
-
-
-def compute_confidence(countours, windowSize, mask, point, sourceImage, confidence):
-    radius = windowSize // 2
-    inverseMask = 1-mask 
-    inversedImage = inverseMask * sourceImage
-    
-    height, width = mask.shape #height is number rows, width is number of columns
-    
-    for front in np.argwhere(countours == 1): #along the fill front
-        
-        y_lower = max(0, point[0] - radius) #height lower bound is either 0 or point - radius
-        y_upper = min(point[0] + radius, height - 1) #height upper bound is either the point + radius, or the height of the pic
-        x_lower = max(0, point[1] - radius)
-        x_upper = min(point[1], width - 1)
-        
-        psi = confidence[y_lower:y_upper , x_lower:x_upper]
-        sumPsi = np.sum(psi)
-        magPsi = (x_upper - x_lower) * (y_upper - y_lower)
-        confidence[point[1], point[0]] = sumPsi / magPsi
+    for i in range(len(contours)):
+        for j in range(len(contours[0])):
+            if contours[i][j] != 1:
+                continue
+            x_left, x_right, y_top, y_bottom = boundary(img, j, i, window)
+            sumPsi = np.sum(confidence[y_top:y_bottom , x_left:x_right])
+            magPsi = (x_right - x_left) * (y_bottom - y_top)
+            confidence[j, i] = sumPsi / magPsi
 
     return confidence
         
