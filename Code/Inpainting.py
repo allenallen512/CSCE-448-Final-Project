@@ -129,9 +129,8 @@ def update_Mask_Image(image, mask, bestRegion, updateRegion, updateRegionIndex, 
     targetMask is the mask where inside the mask is 1 and outside of 0
     source mask is just the inverse of the
     '''
-    boundX, boundY = bestRegion
     invertedMask = 1 - targetMask
-    lowX, highX, lowY, highY = boundary(image, boundX, boundY, windowSize)
+    lowX, highX, lowY, highY = bestRegion[0], bestRegion[1], bestRegion[2], bestRegion[3]
     sourceImageCopy = image[lowX:highX+1, lowY:highY+1] #the part of the image we want to duplicate into the target image
     newRegion = sourceImageCopy * targetMask #tarrget mask is just the regular mask inside of the box we want to fill
     oldRegion = invertedMask * updateRegion
