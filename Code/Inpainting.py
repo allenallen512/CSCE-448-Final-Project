@@ -7,16 +7,6 @@ import errno
 SOURCE_FOLDER = "../Images/"
 OUT_FOLDER = "../Results/"
 
-# def boundary(img, x, y, window):
-#     img_height, img_width = img.shape[0], img.shape[1]
-#     x_left, x_right, y_top, y_bottom = x - window[0], x + window[0], y - window[1], y + window[1]
-
-#     if x_left < 0: x_left = 0
-#     if x_right >= img_width: x_right = img_width - 1
-#     if y_top < 0: y_top = 0
-#     if y_bottom >= img_height: y_bottom = img_height - 1
-
-#     return x_left, x_right, y_top, y_bottom
 
 def boundary(img, x, y, window):
     # Ensure x, y, and window are scalars/integers
@@ -108,8 +98,7 @@ def find_best_match(img, mask, patch_size, priorityCoord):
                 
     return best_match
 
-
-#Original Code from Online Github - Need to Change
+# remix
 def compute_fill_front(mask):
     if mask.shape[-1] == 3:
         mask = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
@@ -131,6 +120,27 @@ def update_mask_image(image, mask, best_match, target_image, target_mask, source
           max_indices[1][0]: max_indices[1][1]] = 0 # Fill with black.
 
     return image, mask
+
+def update_Mask_Image(image, mask, bestRegion, updateRegion, updateRegionIndex, targetMask, windowSize):
+    '''
+    need the image, mask, best matching region from find best match
+    update region is the region we want to update
+    updateRegionIndex are the index points. this can be combined with the ones aove
+    targetMask is the mask where inside the mask is 1 and outside of 0
+    source mask is just the inverse of the
+    '''
+    boundX, boundY = bestRegion
+    invertedMask = 1 - targetMask
+    lowX, highX, lowY, highY = boundary(image, boundX, boundY, windowSize)
+    sourceImageCopy = image[lowX:highX+1, lowY:highY+1] #the part of the image we want to duplicate into the target image
+    newRegion = sourceImageCopy * targetMask #tarrget mask is just the regular mask inside of the box we want to fill
+    oldRegion = invertedMask * updateRegion
+    lowerXFill, upperXFill, lowerYFill, upperYFill = updateRegionIndex[0][0], updateRegionIndex[0][1], updateRegionIndex[1][0], updateRegionIndex[1][1]
+   
+    mask[lowerXFill:upperXFill, lowerYFill:upperYFill] = 0
+    image[lowerXFill:upperXFill, lowerYFill:upperYFill] = newRegion + oldRegion
+   
+    return mask, image
                 
 
 def erase(image, mask, window=(9, 9)):
