@@ -15,13 +15,13 @@ def boundary(img, x, y, window):
     if not isinstance(window, tuple):
         raise ValueError("window must be a tuple of two integers")
 
-    print(f"x: {x}, y: {y}, window: {window}")  # Debugging output
+    #print(f"x: {x}, y: {y}, window: {window}")  # Debugging output
 
-    img_height, img_width = img.shape[:2]
-    x_left = max(x - window[0], 0)
-    x_right = min(x + window[0] + 1, img_width)
-    y_top = max(y - window[1], 0)
-    y_bottom = min(y + window[1] + 1, img_height)
+    img_width, img_height = img.shape[:2]
+    x_left = max(x - window[0] // 2, 0) if (x - window[0] // 2) > 0 else x
+    x_right = min(x + window[0] // 2, img_width - 1) if (x + window[0] // 2) < img_width else x
+    y_top = max(y - window[1] // 2, 0) if (y - window[1] // 2) > 0 else y
+    y_bottom = min(y + window[1] // 2, img_height - 1) if (y + window[1] // 2) < img_height else y 
     
     return x_left, x_right, y_top, y_bottom
 
@@ -60,20 +60,20 @@ def compute_confidence(contours, window, mask, img):
 
     return confidence
         
-def find_best_match(img, mask, patch_size, priorityCoord):
+def find_best_match(img, mask, window, priorityCoord):
     best_ssd = float('inf')
     best_match = []
     inverted_mask = invert(mask)
 
     x_coord = int(priorityCoord[0])
     y_coord = int(priorityCoord[1])
-    window_size = (10, 10)
 
-    xl, xr, yt, yb = boundary(image, x_coord, y_coord, window_size)
+    print(f"({x_coord},{y_coord})")
+    xl, xr, yt, yb = boundary(img, x_coord, y_coord, window)
     # xl, xr, yt, yb = boundary(img, priorityCoord[0], priorityCoord[1], patch_size)
     if xl is None:
         return None
-
+    
     # target_patch = inverted_mask[yt:yb + 1, xl:xr + 1]
     target_patch = mask[yt:yb + 1, xl:xr + 1]
     if target_patch.size == 0:
@@ -81,15 +81,18 @@ def find_best_match(img, mask, patch_size, priorityCoord):
     
     target_img = img[yt:yb + 1, xl:xr + 1] * target_patch
 
-    for y in range(image.shape[0]): 
-        for x in range(image.shape[1]):
-            x_left, x_right, y_top, y_bottom = boundary(img, x, y, patch_size)
+    for y in range(img.shape[1] - 1): 
+        for x in range(img.shape[0] - 1):
+            x_left, x_right, y_top, y_bottom = boundary(img, x, y, window)
             maskPatch = inverted_mask[y_top:y_bottom + 1, x_left: x_right + 1]
 
             if np.any(maskPatch == 0):
                 continue
-            
-            candidatePatch = image[y_top:y_bottom + 1, x_left:x_right + 1] * target_patch
+            print(f"{x},{y}")
+            print(img[y_top:y_bottom + 1, x_left:x_right + 1].shape)
+            print(target_patch.shape)
+            print(f"{x_left},{x_right},{y_top},{y_bottom}")
+            candidatePatch = img[y_top:y_bottom + 1, x_left:x_right + 1] * target_patch
     
             difference = np.linalg.norm(target_img - candidatePatch)
             if difference < best_ssd:
@@ -107,19 +110,6 @@ def compute_fill_front(mask):
     fill_front = cv2.drawContours(fill_front, contours, -1, (255, 255, 255), thickness=1) / 255.
     return fill_front.astype('uint8')
 
-def update_mask_image(image, mask, best_match, target_image, target_mask, source_mask, max_indices):
-    sx, sy = best_match
-    source_image = image[sx[0]: sx[1]+1, sy[0]:sy[1]+1]
-
-    # Update the image.
-    image[max_indices[0][0]: max_indices[0][1],
-          max_indices[1][0]: max_indices[1][1]] = source_image * target_mask + target_image * source_mask
-
-    # Update the mask.
-    mask[max_indices[0][0]: max_indices[0][1],
-          max_indices[1][0]: max_indices[1][1]] = 0 # Fill with black.
-
-    return image, mask
 
 def update_Mask_Image(image, mask, bestRegion, updateRegion, updateRegionIndex, targetMask, windowSize):
     '''
@@ -149,7 +139,7 @@ def erase(image, mask, window=(9, 9)):
     still_processing = math.inf
     
     while still_processing != 0:
-        lab_image = cv2.cvtColor((image.astype(np.float32) / 256), cv2.COLOR_BGR2LAB)
+        #lab_image = cv2.cvtColor((image.astype(np.float32) / 256), cv2.COLOR_BGR2LAB)
         
         # Compute the fill front.
         fill_front = compute_fill_front(mask)
@@ -168,17 +158,17 @@ def erase(image, mask, window=(9, 9)):
         
         # Extract the target regions from the image and mask.
         target_image = image[y1:y2, x1:x2]
-        target_image_lab = lab_image[y1:y2, x1:x2]
+        #target_image_lab = lab_image[y1:y2, x1:x2]
         target_mask = mask[y1:y2, x1:x2, np.newaxis].repeat(3, axis=2)
         
         # Find the best match to replace the target region.
         source_mask = 1 - target_mask
-        best_match_region = find_best_match(image, target_image_lab, source_mask, (y1, y2, x1, x2))
+        best_match_region = find_best_match(image, mask, window, (max_x, max_y))
         
         # Update the confidence map and the image/mask.
         front_points = np.argwhere(target_mask[:, :, 0] == 1)
         confidence[front_points[:, 0] + y1, front_points[:, 1] + x1] = confidence[max_y, max_x]
-        image, mask = update_mask_image(image, mask, best_match_region, target_image, target_mask, source_mask, [x1, x2, y1, y2])
+        image, mask = update_Mask_Image(image, mask, best_match_region, target_image, target_mask, source_mask, [x1, x2, y1, y2])
         
         still_processing = mask.sum()
         print(f"Remaining pixels to paint: {still_processing}")
@@ -200,6 +190,7 @@ if __name__ == '__main__':
     mask_name = SOURCE_FOLDER + 'mask_01.jpg'
 
     image = cv2.imread(image_name)
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     mask = cv2.imread(mask_name, cv2.IMREAD_GRAYSCALE)
 
     output = erase(image, mask, window=(22,22))
