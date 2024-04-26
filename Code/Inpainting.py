@@ -20,7 +20,7 @@ def boundary(img, x, y, window):
     img_height, img_width = img.shape[:2] #changed this line
     # print("the height and width of the image is: ", img_height, img_width)
     x_left = max(x - (window[0] // 2), 0) if (x - (window[0] // 2)) >= 0 else x
-    x_right = min(x + (window[0] // 2), img_width - 1) if (x + (window[0] // 2)) <= img_width else x
+    x_right = min(x + (window[0] // 2), img_width - 1) #if (x + (window[0] // 2)) <= img_width else x
     y_top = max(y - (window[1] // 2), 0) if (y - (window[1] // 2)) >= 0 else y
     y_bottom = min(y + (window[1] // 2), img_height - 1) if (y + (window[1] // 2)) <= img_height else y 
     
@@ -62,7 +62,6 @@ def compute_confidence(contours, window, mask, img):
     return confidence
         
 def find_best_match(img, mask, window, priorityCoord):
-    print("the size of the whole image is: ", img.shape)
     # print("the window being used is: ", window)
     best_ssd = float('inf')
     best_match = []
@@ -78,18 +77,20 @@ def find_best_match(img, mask, window, priorityCoord):
     if xl is None:
         return None
     
-    # target_patch = inverted_mask[yt:yb + 1, xl:xr + 1]
+    target_patch = inverted_mask[yt:yb + 1, xl:xr + 1]
     #target patch is the mask on the points we are trying to fill
-    target_patch = mask[yt:yb + 1, xl:xr + 1]
+    # target_patch = mask[yt:yb + 1, xl:xr + 1]
     if target_patch.size == 0:
         return None
     
     target_img = img[yt:yb + 1, xl:xr + 1] * target_patch
     print("the size of the target image is: ", target_img.shape)
 
-    for y in range(window[1] // 2, img.shape[1] - 1): 
-        for x in range(window[0] // 2, img.shape[0] - 1):
-            print("checking coordinates", f"{x},{y}")
+    for y in range(window[0] // 2, img.shape[0] - 1): 
+        for x in range(window[1] // 2, img.shape[1] - 1):
+            print("checking coordinates", f"x: {x}, y: {y}")
+            print("the size of the whole image is: ", img.shape)
+
 
             x_left, x_right, y_top, y_bottom = boundary(img, x, y, window)
             print(x_left, x_right, y_top, y_bottom)
@@ -98,8 +99,9 @@ def find_best_match(img, mask, window, priorityCoord):
             if np.any(maskPatch == 0):
                 continue
             print("the shape of the current image is: ", img[y_top:y_bottom + 1, x_left:x_right + 1].shape)
+            print("the target patch shape before resizing: ", target_patch.shape)
             target_patch_resized = np.resize(target_patch, img[y_top:y_bottom + 1, x_left:x_right + 1].shape)
-            print("the target patch shape is: ", target_patch_resized.shape)
+            print("the target patch resized shape is: ", target_patch_resized.shape)
             
             # print(f"{x_left},{x_right},{y_top},{y_bottom}")
             candidatePatch = img[y_top:y_bottom + 1, x_left:x_right + 1] * target_patch_resized
@@ -132,7 +134,9 @@ def update_Mask_Image(image, mask, bestRegion, updateRegion, updateRegionIndex, 
     '''
     invertedMask = 1 - targetMask
     lowX, highX, lowY, highY = bestRegion[0], bestRegion[1], bestRegion[2], bestRegion[3]
-    sourceImageCopy = image[lowX:highX+1, lowY:highY+1] #the part of the image we want to duplicate into the target image
+    sourceImageCopy = image[lowY:highY+1,lowX:highX+1] #the part of the image we want to duplicate into the target image
+    print("the size of the source image copy: ", sourceImageCopy.shape)
+    print("the size of the target mask: ", targetMask.shape)
     newRegion = sourceImageCopy * targetMask #tarrget mask is just the regular mask inside of the box we want to fill
     oldRegion = invertedMask * updateRegion
     lowerXFill, upperXFill, lowerYFill, upperYFill = updateRegionIndex[0][0], updateRegionIndex[0][1], updateRegionIndex[1][0], updateRegionIndex[1][1]
@@ -177,6 +181,7 @@ def erase(image, mask, window=(10, 10)):
         # Find the best match to replace the target region.
         source_mask = 1 - target_mask
         best_match_region = find_best_match(image, mask, window, (max_x, max_y))
+        print("the best region match is: ", best_match_region)
         
         # Update the confidence map and the image/mask.
         front_points = np.argwhere(target_mask[:, :, 0] == 1)
