@@ -18,7 +18,7 @@ def boundary(img, x, y, window):
     # print(f"x: {x}, y: {y}, window: {window}")  # Debugging output
 
     img_height, img_width = img.shape[:2] #changed this line
-    print("the height and width of the image is: ", img_height, img_width)
+    # print("the height and width of the image is: ", img_height, img_width)
     x_left = max(x - (window[0] // 2), 0) if (x - (window[0] // 2)) >= 0 else x
     x_right = min(x + (window[0] // 2), img_width - 1) if (x + (window[0] // 2)) <= img_width else x
     y_top = max(y - (window[1] // 2), 0) if (y - (window[1] // 2)) >= 0 else y
@@ -63,7 +63,7 @@ def compute_confidence(contours, window, mask, img):
         
 def find_best_match(img, mask, window, priorityCoord):
     print("the size of the whole image is: ", img.shape)
-    print("the window being used is: ", window)
+    # print("the window being used is: ", window)
     best_ssd = float('inf')
     best_match = []
     inverted_mask = invert(mask)
@@ -73,7 +73,7 @@ def find_best_match(img, mask, window, priorityCoord):
 
     print("the starting priority coordinates", f"({x_coord},{y_coord})")
     xl, xr, yt, yb = boundary(img, x_coord, y_coord, window)
-    print(xl, xr, yt, yb)
+    print("the first boundary set: ", xl, xr, yt, yb)
     # xl, xr, yt, yb = boundary(img, priorityCoord[0], priorityCoord[1], patch_size)
     if xl is None:
         return None
@@ -89,19 +89,23 @@ def find_best_match(img, mask, window, priorityCoord):
 
     for y in range(window[1] // 2, img.shape[1] - 1): 
         for x in range(window[0] // 2, img.shape[0] - 1):
+            print("checking coordinates", f"{x},{y}")
+
             x_left, x_right, y_top, y_bottom = boundary(img, x, y, window)
-            print(x_left, x_right, y_bottom, y_top)
+            print(x_left, x_right, y_top, y_bottom)
             maskPatch = inverted_mask[y_top:y_bottom + 1, x_left: x_right + 1]
 
             if np.any(maskPatch == 0):
                 continue
-            print("checking coordinates", f"{x},{y}")
             print("the shape of the current image is: ", img[y_top:y_bottom + 1, x_left:x_right + 1].shape)
-            print("the target patch shape is: ", target_patch.shape)
-            print(f"{x_left},{x_right},{y_top},{y_bottom}")
-            candidatePatch = img[y_top:y_bottom + 1, x_left:x_right + 1] * target_patch
-    
-            difference = np.linalg.norm(target_img - candidatePatch)
+            target_patch_resized = np.resize(target_patch, img[y_top:y_bottom + 1, x_left:x_right + 1].shape)
+            print("the target patch shape is: ", target_patch_resized.shape)
+            
+            # print(f"{x_left},{x_right},{y_top},{y_bottom}")
+            candidatePatch = img[y_top:y_bottom + 1, x_left:x_right + 1] * target_patch_resized
+            target_image_resized = np.resize(target_img, candidatePatch.shape)
+            print("the size of the target image is: ", target_img.shape)
+            difference = np.linalg.norm(target_image_resized - candidatePatch)
             if difference < best_ssd:
                 best_ssd = difference
                 best_match = [x_left, x_right, y_top, y_bottom]
