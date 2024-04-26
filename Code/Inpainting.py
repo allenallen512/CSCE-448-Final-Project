@@ -15,13 +15,14 @@ def boundary(img, x, y, window):
     if not isinstance(window, tuple):
         raise ValueError("window must be a tuple of two integers")
 
-    #print(f"x: {x}, y: {y}, window: {window}")  # Debugging output
+    # print(f"x: {x}, y: {y}, window: {window}")  # Debugging output
 
-    img_width, img_height = img.shape[:2]
-    x_left = max(x - window[0] // 2, 0) if (x - window[0] // 2) > 0 else x
-    x_right = min(x + window[0] // 2, img_width - 1) if (x + window[0] // 2) < img_width else x
-    y_top = max(y - window[1] // 2, 0) if (y - window[1] // 2) > 0 else y
-    y_bottom = min(y + window[1] // 2, img_height - 1) if (y + window[1] // 2) < img_height else y 
+    img_height, img_width = img.shape[:2] #changed this line
+    print("the height and width of the image is: ", img_height, img_width)
+    x_left = max(x - (window[0] // 2), 0) if (x - (window[0] // 2)) >= 0 else x
+    x_right = min(x + (window[0] // 2), img_width - 1) if (x + (window[0] // 2)) <= img_width else x
+    y_top = max(y - (window[1] // 2), 0) if (y - (window[1] // 2)) >= 0 else y
+    y_bottom = min(y + (window[1] // 2), img_height - 1) if (y + (window[1] // 2)) <= img_height else y 
     
     return x_left, x_right, y_top, y_bottom
 
@@ -61,6 +62,8 @@ def compute_confidence(contours, window, mask, img):
     return confidence
         
 def find_best_match(img, mask, window, priorityCoord):
+    print("the size of the whole image is: ", img.shape)
+    print("the window being used is: ", window)
     best_ssd = float('inf')
     best_match = []
     inverted_mask = invert(mask)
@@ -68,29 +71,33 @@ def find_best_match(img, mask, window, priorityCoord):
     x_coord = int(priorityCoord[0])
     y_coord = int(priorityCoord[1])
 
-    print(f"({x_coord},{y_coord})")
+    print("the starting priority coordinates", f"({x_coord},{y_coord})")
     xl, xr, yt, yb = boundary(img, x_coord, y_coord, window)
+    print(xl, xr, yt, yb)
     # xl, xr, yt, yb = boundary(img, priorityCoord[0], priorityCoord[1], patch_size)
     if xl is None:
         return None
     
     # target_patch = inverted_mask[yt:yb + 1, xl:xr + 1]
+    #target patch is the mask on the points we are trying to fill
     target_patch = mask[yt:yb + 1, xl:xr + 1]
     if target_patch.size == 0:
         return None
     
     target_img = img[yt:yb + 1, xl:xr + 1] * target_patch
+    print("the size of the target image is: ", target_img.shape)
 
-    for y in range(img.shape[1] - 1): 
-        for x in range(img.shape[0] - 1):
+    for y in range(window[1] // 2, img.shape[1] - 1): 
+        for x in range(window[0] // 2, img.shape[0] - 1):
             x_left, x_right, y_top, y_bottom = boundary(img, x, y, window)
+            print(x_left, x_right, y_bottom, y_top)
             maskPatch = inverted_mask[y_top:y_bottom + 1, x_left: x_right + 1]
 
             if np.any(maskPatch == 0):
                 continue
-            print(f"{x},{y}")
-            print(img[y_top:y_bottom + 1, x_left:x_right + 1].shape)
-            print(target_patch.shape)
+            print("checking coordinates", f"{x},{y}")
+            print("the shape of the current image is: ", img[y_top:y_bottom + 1, x_left:x_right + 1].shape)
+            print("the target patch shape is: ", target_patch.shape)
             print(f"{x_left},{x_right},{y_top},{y_bottom}")
             candidatePatch = img[y_top:y_bottom + 1, x_left:x_right + 1] * target_patch
     
@@ -132,7 +139,7 @@ def update_Mask_Image(image, mask, bestRegion, updateRegion, updateRegionIndex, 
     return mask, image
                 
 
-def erase(image, mask, window=(9, 9)):
+def erase(image, mask, window=(10, 10)):
     mask = (mask / 255).round().astype(np.uint8)
     image_dims = image.shape[:2]
     confidence = (1 - mask).astype(np.float64)
@@ -150,6 +157,8 @@ def erase(image, mask, window=(9, 9)):
         # Identify the point with the highest priority.
         max_priority_idx = np.unravel_index(np.argmax(priority), priority.shape)
         max_y, max_x = max_priority_idx
+        print("the max y being used is: ", max_y)
+        print("the max x being used is: ", max_x)
         
         # Define the region around the point with highest priority.
         half_window = (window[0] // 2, window[1] // 2)
@@ -193,7 +202,7 @@ if __name__ == '__main__':
     image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     mask = cv2.imread(mask_name, cv2.IMREAD_GRAYSCALE)
 
-    output = erase(image, mask, window=(22,22))
+    output = erase(image, mask, window=(10,10))
     cv2.imwrite(OUT_FOLDER + 'result_01.png', output)
 
 
