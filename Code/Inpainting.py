@@ -50,7 +50,7 @@ def compute_confidence(contours, window, mask, img):
     confidence = invert(mask).astype(np.float64)
         
     for i in range(len(contours)):
-        for j in range(len(contours[0])):
+        for j in range(len(contours[i])):
             if contours[i][j] != 1:
                 continue
             x_left, x_right, y_top, y_bottom = boundary(img, j, i, window)
@@ -121,6 +121,7 @@ def compute_fill_front(mask):
     fill_front = np.zeros_like(mask)
     contours, _ = cv2.findContours(mask, mode=cv2.RETR_EXTERNAL, method=cv2.CHAIN_APPROX_SIMPLE)
     fill_front = cv2.drawContours(fill_front, contours, -1, (255, 255, 255), thickness=1) / 255.
+    print("the shape of fillfront is: ", fill_front.shape)
     return fill_front.astype('uint8')
 
 
