@@ -58,7 +58,7 @@ def compute_confidence(contours, window, mask, img):
             magPsi = (x_right - x_left) * (y_bottom - y_top)
             if magPsi > 0:
                 confidence[i, j] = sumPsi / magPsi
-
+                
     return confidence
         
 def find_best_match(img, mask, window, priorityCoord):
@@ -70,9 +70,9 @@ def find_best_match(img, mask, window, priorityCoord):
     x_coord = int(priorityCoord[0])
     y_coord = int(priorityCoord[1])
 
-    print("the starting priority coordinates", f"({x_coord},{y_coord})")
+    # print("the starting priority coordinates", f"({x_coord},{y_coord})")
     xl, xr, yt, yb = boundary(img, x_coord, y_coord, window)
-    print("the first boundary set: ", xl, xr, yt, yb)
+    # print("the first boundary set: ", xl, xr, yt, yb)
     # xl, xr, yt, yb = boundary(img, priorityCoord[0], priorityCoord[1], patch_size)
     if xl is None:
         return None
@@ -84,29 +84,29 @@ def find_best_match(img, mask, window, priorityCoord):
         return None
     
     target_img = img[yt:yb + 1, xl:xr + 1] * target_patch
-    print("the size of the target image is: ", target_img.shape)
+    # print("the size of the target image is: ", target_img.shape)
 
-    for y in range(window[0] // 2, img.shape[0] - 1): 
-        for x in range(window[1] // 2, img.shape[1] - 1):
-            print("checking coordinates", f"x: {x}, y: {y}")
-            print("the size of the whole image is: ", img.shape)
+    for y in range(window[0] // 2, img.shape[0] - window[0] // 2): #i made it only go to half the radius from the edge to stop edge cases
+        for x in range(window[1] // 2, img.shape[1] - window[1] // 2):
+            # print("checking coordinates", f"x: {x}, y: {y}")
+            # print("the size of the whole image is: ", img.shape)
 
 
             x_left, x_right, y_top, y_bottom = boundary(img, x, y, window)
-            print(x_left, x_right, y_top, y_bottom)
+            # print(x_left, x_right, y_top, y_bottom)
             maskPatch = inverted_mask[y_top:y_bottom + 1, x_left: x_right + 1]
 
             if np.any(maskPatch == 0):
                 continue
-            print("the shape of the current image is: ", img[y_top:y_bottom + 1, x_left:x_right + 1].shape)
-            print("the target patch shape before resizing: ", target_patch.shape)
+            # print("the shape of the current image is: ", img[y_top:y_bottom + 1, x_left:x_right + 1].shape)
+            # print("the target patch shape before resizing: ", target_patch.shape)
             target_patch_resized = np.resize(target_patch, img[y_top:y_bottom + 1, x_left:x_right + 1].shape)
-            print("the target patch resized shape is: ", target_patch_resized.shape)
+            # print("the target patch resized shape is: ", target_patch_resized.shape)
             
             # print(f"{x_left},{x_right},{y_top},{y_bottom}")
             candidatePatch = img[y_top:y_bottom + 1, x_left:x_right + 1] * target_patch_resized
             target_image_resized = np.resize(target_img, candidatePatch.shape)
-            print("the size of the target image is: ", target_img.shape)
+            # print("the size of the target image is: ", target_img.shape)
             difference = np.linalg.norm(target_image_resized - candidatePatch)
             if difference < best_ssd:
                 best_ssd = difference
@@ -132,22 +132,28 @@ def update_Mask_Image(image, mask, bestRegion, updateRegion, updateRegionIndex, 
     targetMask is the mask where inside the mask is 1 and outside of 0
     source mask is just the inverse of the
     '''
+    
+    
     invertedMask = 1 - targetMask
     lowX, highX, lowY, highY = bestRegion[0], bestRegion[1], bestRegion[2], bestRegion[3]
+    # print("the shape of target mask: ", targetMask.shape)
     sourceImageCopy = image[lowY:highY+1,lowX:highX+1] #the part of the image we want to duplicate into the target image
-    print("the size of the source image copy: ", sourceImageCopy.shape)
-    print("the size of the target mask: ", targetMask.shape)
+    print("the size of the source image copy in update: ", sourceImageCopy.shape)
+    print("the size of the target mask in update: ", targetMask.shape)
     newRegion = sourceImageCopy * targetMask #tarrget mask is just the regular mask inside of the box we want to fill
     oldRegion = invertedMask * updateRegion
-    lowerXFill, upperXFill, lowerYFill, upperYFill = updateRegionIndex[0][0], updateRegionIndex[0][1], updateRegionIndex[1][0], updateRegionIndex[1][1]
-   
-    mask[lowerXFill:upperXFill, lowerYFill:upperYFill] = 0
-    image[lowerXFill:upperXFill, lowerYFill:upperYFill] = newRegion + oldRegion
-   
+    print("the shape of new region: " , newRegion.shape, " and the shape of old: ", oldRegion.shape)
+    lowerXFill, upperXFill, lowerYFill, upperYFill = updateRegionIndex[0], updateRegionIndex[1], updateRegionIndex[2], updateRegionIndex[3]
+    print("lowerXfill: ", lowerXFill, " upper XFill: ", upperXFill, " lower YFill: ", lowerYFill, " upper Y Fill: ", upperYFill)
+    mask[lowerYFill:upperYFill, lowerXFill:upperXFill] = 0
+    image[lowerYFill:upperYFill, lowerXFill:upperXFill] = newRegion + oldRegion
+    
+
     return mask, image
                 
 
 def erase(image, mask, window=(10, 10)):
+    print("the shape of the image in the erase function is: " , image.shape)
     mask = (mask / 255).round().astype(np.uint8)
     image_dims = image.shape[:2]
     confidence = (1 - mask).astype(np.float64)
@@ -161,6 +167,8 @@ def erase(image, mask, window=(10, 10)):
         
         # Compute priority for each point in the fill front.
         priority, updated_confidence = compute_priority(image, fill_front, mask, window)
+        print("the maximum priority is: ", np.max(priority))        
+        
         
         # Identify the point with the highest priority.
         max_priority_idx = np.unravel_index(np.argmax(priority), priority.shape)
@@ -170,23 +178,31 @@ def erase(image, mask, window=(10, 10)):
         
         # Define the region around the point with highest priority.
         half_window = (window[0] // 2, window[1] // 2)
-        x1, x2 = max(max_x - half_window[0], 0), min(max_x + half_window[0] + 1, image_dims[1])
+        x1, x2 = max(max_x - half_window[0], 0), min(max_x + half_window[0]  + 1, image_dims[1]) #removed plus from from both min first values
         y1, y2 = max(max_y - half_window[1], 0), min(max_y + half_window[1] + 1, image_dims[0])
         
         # Extract the target regions from the image and mask.
         target_image = image[y1:y2, x1:x2]
         #target_image_lab = lab_image[y1:y2, x1:x2]
         target_mask = mask[y1:y2, x1:x2, np.newaxis].repeat(3, axis=2)
+        target_mask_1D = mask[y1:y2, x1:x2]
+        print("the shape of target mask 1D in erase: ", target_mask_1D.shape)
         
         # Find the best match to replace the target region.
-        source_mask = 1 - target_mask
+        source_mask = 1 - target_mask_1D
+        
+        print("the shape of source mask is: ", source_mask.shape)
         best_match_region = find_best_match(image, mask, window, (max_x, max_y))
         print("the best region match is: ", best_match_region)
-        
+        update_Region_Index = [x1, x2, y1, y2]
         # Update the confidence map and the image/mask.
-        front_points = np.argwhere(target_mask[:, :, 0] == 1)
-        confidence[front_points[:, 0] + y1, front_points[:, 1] + x1] = confidence[max_y, max_x]
-        image, mask = update_Mask_Image(image, mask, best_match_region, target_image, target_mask, source_mask, [x1, x2, y1, y2])
+        image, mask = update_Mask_Image(image, mask, best_match_region, target_image, update_Region_Index, target_mask_1D, [x1, x2, y1, y2])
+#after getting the new masks is when we will update the confidence of all the points   
+        print("the shape of the updated image is: ", image.shape, " and the shape of the new mask: ", mask.shape)
+        
+        # updating the confidence
+        front_points = np.argwhere(target_mask == 1)
+        updated_confidence[front_points] = updated_confidence[max_y, max_x]
         
         still_processing = mask.sum()
         print(f"Remaining pixels to paint: {still_processing}")
@@ -209,7 +225,9 @@ if __name__ == '__main__':
 
     image = cv2.imread(image_name)
     image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
     mask = cv2.imread(mask_name, cv2.IMREAD_GRAYSCALE)
+    print("the mask shape is: ",mask.shape)
 
     output = erase(image, mask, window=(10,10))
     cv2.imwrite(OUT_FOLDER + 'result_01.png', output)
