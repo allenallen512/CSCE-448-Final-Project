@@ -62,15 +62,15 @@ if __name__ == '__main__':
     
     imageDir = '../Images/'
     resultDir = '../Results/'
-    im1_name = 'target_01.jpg'
+    im1_name = 'target_03.jpg'
     image = plt.imread(imageDir + im1_name)
     
     masked = GetMask(image)
-    index = 1
+    index = 3
     
     plt.imsave("{}mask_{}.jpg".format(imageDir, str(index).zfill(2)), masked)
     
-    mask = plt.imread(imageDir + "mask_01.jpg")
+    mask = plt.imread(imageDir + "mask_03.jpg")
     edge_points, image_with_contour = getGradient(mask)
     # print(edge_points)
     # plt.imsave("{}countor_{}.jpg".format(imageDir, str(index).zfill(2)), image_with_contour)
