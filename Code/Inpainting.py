@@ -118,7 +118,7 @@ def find_best_match(img, mask, window, priorityCoord):
             # print("the target patch resized shape is: ", target_patch_resized.shape)
             
             # print(f"{x_left},{x_right},{y_top},{y_bottom}")
-            candidatePatch = img[y_top:y_bottom + 1, x_left:x_right + 1] * target_patch
+            candidatePatch = img[y_top:y_bottom + 1, x_left:x_right + 1] * target_patch_resized
             target_image_resized = np.resize(target_img, candidatePatch.shape)
             # print("the size of the target image is: ", target_img.shape)
             difference = np.linalg.norm(target_image_resized - candidatePatch)
@@ -253,8 +253,8 @@ if __name__ == '__main__':
         if exception.errno != errno.EEXIST:
             raise
     
-    image_name = SOURCE_FOLDER + 'target_01.jpg'
-    mask_name = SOURCE_FOLDER + 'mask_01.jpg'
+    image_name = SOURCE_FOLDER + 'target_07.jpg'
+    mask_name = SOURCE_FOLDER + 'mask_07.jpg'
 
     image = cv2.imread(image_name)
     # image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -265,7 +265,7 @@ if __name__ == '__main__':
 
     output = erase(image, mask, window=(10,10))
     # output = cv2.cvtColor(output, cv2.COLOR_GRAY2BGR)
-    cv2.imwrite(OUT_FOLDER + 'result_01.png', output)
+    cv2.imwrite(OUT_FOLDER + 'result_07.png', output)
 
 
 
