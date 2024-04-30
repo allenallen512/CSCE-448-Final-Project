@@ -33,6 +33,8 @@ def compute_norm(matrix):
 
 
 def compute_priority(img, fill_front, mask, window):
+    print("the max of the image: ", np.max(image))
+    print("the max of the mask in the priority function: ", np.max(mask))
     conf = compute_confidence(fill_front, window, mask, img)
 
     sobel_map = cv2.Sobel(src=mask.astype(float), ddepth=cv2.CV_64F, dx=1, dy=1, ksize=1)
@@ -133,8 +135,7 @@ def update_Mask_Image(image, mask, bestRegion, updateRegion, updateRegionIndex, 
     targetMask is the mask where inside the mask is 1 and outside of 0
     source mask is just the inverse of the
     '''
-    
-    
+    # print("the sum of all points in mask is: ", np.sum(mask))
     invertedMask = 1 - targetMask
     lowX, highX, lowY, highY = bestRegion[0], bestRegion[1], bestRegion[2], bestRegion[3]
     # print("the shape of target mask: ", targetMask.shape)
@@ -148,6 +149,7 @@ def update_Mask_Image(image, mask, bestRegion, updateRegion, updateRegionIndex, 
     print("lowerXfill: ", lowerXFill, " upper XFill: ", upperXFill, " lower YFill: ", lowerYFill, " upper Y Fill: ", upperYFill)
     mask[lowerYFill:upperYFill, lowerXFill:upperXFill] = 0
     image[lowerYFill:upperYFill, lowerXFill:upperXFill] = newRegion + oldRegion
+    # print("the sum of all points in mask after the update is:", np.sum(mask))
     
 
     return mask, image
@@ -197,7 +199,7 @@ def erase(image, mask, window=(10, 10)):
         print("the best region match is: ", best_match_region)
         update_Region_Index = [x1, x2, y1, y2]
         # Update the confidence map and the image/mask.
-        image, mask = update_Mask_Image(image, mask, best_match_region, target_image, update_Region_Index, target_mask_1D, [x1, x2, y1, y2])
+        mask, image = update_Mask_Image(image, mask, best_match_region, target_image, update_Region_Index, target_mask_1D, [x1, x2, y1, y2])
 #after getting the new masks is when we will update the confidence of all the points   
         print("the shape of the updated image is: ", image.shape, " and the shape of the new mask: ", mask.shape)
         
