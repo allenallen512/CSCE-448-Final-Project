@@ -8,7 +8,7 @@ SOURCE_FOLDER = "../Images/"
 OUT_FOLDER = "../Results/"
 
 
-def boundary(img, x, y, window):
+def get_boundary(img, x, y, window):
     # Ensure x, y, and window are scalars/integers
     if isinstance(x, np.ndarray) or isinstance(y, np.ndarray):
         raise ValueError("x and y must be scalar integers")
@@ -26,36 +26,38 @@ def boundary(img, x, y, window):
     
     return x_left, x_right, y_top, y_bottom
 
-
+# Need the scalar norm value of a matrix
 def compute_norm(matrix):
     matrix = matrix ** 2
     return np.sqrt(np.sum(matrix))
 
 
-def compute_priority(img, fill_front, mask, window):
+def calculate_priority(img, fill_front, mask, window):
     # print("the max of the image: ", np.max(image))
     # print("the max of the mask in the priority function: ", np.max(mask))
-    conf = compute_confidence(fill_front, window, mask, img)
-
+    conf = get_confidence(fill_front, window, mask, img)
+    # Using the sobel operator to detect edges then compute the norm
     sobel_map = cv2.Sobel(src=mask.astype(float), ddepth=cv2.CV_64F, dx=1, dy=1, ksize=1)
     sobel_map_norm = compute_norm(sobel_map)
     sobel_map /= sobel_map_norm
 
     return fill_front * conf * sobel_map, conf
 
-
+# Invert the mask for purposes of taking element-wise product of matrices
 def invert(mask):
     return 1-mask
 
-def compute_confidence(contours, window, mask, img):
-
+def get_confidence(contours, window, mask, img):
+    # Values that are black in the mask are known (0) become 1 so their confidence is also 1
     confidence = invert(mask).astype(np.float64)
-        
+    # Loop through countours and find where they are drawn
     for i in range(len(contours)):
         for j in range(len(contours[i])):
             if contours[i][j] != 1:
                 continue
-            x_left, x_right, y_top, y_bottom = boundary(img, j, i, window)
+            # Take area around contour which has the unknown pixels and compute confidence based on known pixels around it
+            x_left, x_right, y_top, y_bottom = get_boundary(img, j, i, window)
+            # Use formula in the paper
             sumPsi = np.sum(confidence[y_top:y_bottom + 1 , x_left:x_right + 1])
             magPsi = (x_right - x_left) * (y_bottom - y_top)
             if magPsi > 0:
@@ -63,18 +65,18 @@ def compute_confidence(contours, window, mask, img):
                 
     return confidence
 
-# remix
-def compute_fill_front(mask):
+# Need the fill front as it show the divide between known and unknown pixels in the image
+def get_target_areas(mask):
     if mask.shape[-1] == 3:
         mask = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
     fill_front = np.zeros_like(mask)
+    # Gives a map of the countours followed by drawing given the mask inputted
     contours, _ = cv2.findContours(mask, mode=cv2.RETR_EXTERNAL, method=cv2.CHAIN_APPROX_SIMPLE)
     fill_front = cv2.drawContours(fill_front, contours, -1, (255, 255, 255), thickness=1) / 255.
     # print("the shape of fillfront is: ", fill_front.shape)
     return fill_front.astype('uint8')
 
-
-def find_best_match(img, mask, window, priorityCoord):
+def get_best_patch(img, mask, window, priorityCoord):
     # print("the window being used is: ", window)
     best_ssd = float('inf')
     best_match = []
@@ -84,7 +86,7 @@ def find_best_match(img, mask, window, priorityCoord):
     y_coord = int(priorityCoord[1])
 
     # print("the starting priority coordinates", f"({x_coord},{y_coord})")
-    xl, xr, yt, yb = boundary(img, x_coord, y_coord, window)
+    xl, xr, yt, yb = get_boundary(img, x_coord, y_coord, window)
     # print("the first boundary set: ", xl, xr, yt, yb)
     # xl, xr, yt, yb = boundary(img, priorityCoord[0], priorityCoord[1], patch_size)
     if xl is None:
@@ -106,7 +108,7 @@ def find_best_match(img, mask, window, priorityCoord):
             # print("checking coordinates", f"x: {x}, y: {y}")
             # print("the size of the whole image is: ", img.shape)
 
-            x_left, x_right, y_top, y_bottom = boundary(img, x, y, window)
+            x_left, x_right, y_top, y_bottom = get_boundary(img, x, y, window)
             # print(x_left, x_right, y_top, y_bottom)
             maskPatch = inverted_mask[y_top:y_bottom + 1, x_left: x_right + 1]
 
@@ -131,7 +133,7 @@ def find_best_match(img, mask, window, priorityCoord):
 
 
 
-def update_Mask_Image(image, mask, bestRegion, updateRegion, updateRegionIndex, targetMask, windowSize):
+def update(image, mask, bestRegion, updateRegion, updateRegionIndex, targetMask, windowSize):
     '''
     need the image, mask, best matching region from find best match
     update region is the region we want to update
@@ -166,7 +168,7 @@ def update_Mask_Image(image, mask, bestRegion, updateRegion, updateRegionIndex, 
     return mask, image
                 
 
-def erase(image, mask, window):
+def erase_and_fill_algorithm(image, mask, window):
     # print("the shape of the image in the erase function is: " , image.shape)
     mask = (mask / 255).round().astype(np.uint8)
     image_dims = image.shape[:2]
@@ -177,7 +179,7 @@ def erase(image, mask, window):
         lab_image = cv2.cvtColor((image.astype(np.float32) / 256), cv2.COLOR_BGR2LAB)
         
         # Compute the fill front.
-        fill_front = compute_fill_front(mask)
+        fill_front = get_target_areas(mask)
         
         non_zero_indices = np.argwhere(fill_front > 0)
         mask_indicies = np.argwhere(mask > 0)
@@ -193,7 +195,7 @@ def erase(image, mask, window):
                 print(index, " value of the mask is ", mask[tuple(index)])        
         
         # Compute priority for each point in the fill front.
-        priority, updated_confidence = compute_priority(image, fill_front, mask, window)
+        priority, updated_confidence = calculate_priority(image, fill_front, mask, window)
         print("the maximum priority is: ", np.max(priority))   
    
         # Identify the point with the highest priority.
@@ -224,12 +226,12 @@ def erase(image, mask, window):
         source_mask = 1 - target_mask_1D
         
         # print("the shape of source mask is: ", source_mask.shape)
-        best_match_region = find_best_match(lab_image, mask, window, (max_x, max_y))
+        best_match_region = get_best_patch(lab_image, mask, window, (max_x, max_y))
         print("TRYING TO FILL: ", max_x, max_y, " USING: ", best_match_region)
         # print("the best region match is: ", best_match_region)
         update_Region_Index = [x1, x2, y1, y2]
         # Update the confidence map and the image/mask.
-        mask, image = update_Mask_Image(image, mask, best_match_region, target_image, update_Region_Index, target_mask_1D, [x1, x2, y1, y2])
+        mask, image = update(image, mask, best_match_region, target_image, update_Region_Index, target_mask_1D, [x1, x2, y1, y2])
 #after getting the new masks is when we will update the confidence of all the points   
         print("the shape of the updated image is: ", image.shape, " and the shape of the new mask: ", mask.shape)
         
@@ -253,8 +255,8 @@ if __name__ == '__main__':
         if exception.errno != errno.EEXIST:
             raise
     
-    image_name = SOURCE_FOLDER + 'target_07.jpg'
-    mask_name = SOURCE_FOLDER + 'mask_07.jpg'
+    image_name = SOURCE_FOLDER + 'target_01.jpg'
+    mask_name = SOURCE_FOLDER + 'mask_01.jpg'
 
     image = cv2.imread(image_name)
     # image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -263,9 +265,9 @@ if __name__ == '__main__':
     mask = cv2.imread(mask_name, cv2.IMREAD_GRAYSCALE)
     print("the mask shape is: ",mask.shape)
 
-    output = erase(image, mask, window=(10,10))
+    output = erase_and_fill_algorithm(image, mask, window=(10,10))
     # output = cv2.cvtColor(output, cv2.COLOR_GRAY2BGR)
-    cv2.imwrite(OUT_FOLDER + 'result_07.png', output)
+    cv2.imwrite(OUT_FOLDER + 'result_01.png', output)
 
 
 
